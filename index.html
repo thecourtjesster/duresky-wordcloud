@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What Matters to WA-04</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Source+Sans+3:wght@400;600&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a1f44;
+    font-family: 'Source Sans 3', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .header h1 {
+    font-family: 'Playfair Display', serif;
+    font-weight: 900;
+    font-size: clamp(1.4rem, 4vw, 2.2rem);
+    color: #f5f0e1;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+  }
+
+  .header p {
+    color: #f0d68a;
+    font-size: 0.95rem;
+    margin-top: 6px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .cloud-wrapper {
+    background: #132d5e;
+    border-radius: 16px;
+    border: 1px solid rgba(212, 168, 67, 0.3);
+    padding: 16px;
+    width: 100%;
+    max-width: 860px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+    position: relative;
+  }
+
+  #wordcloud-canvas {
+    width: 100% !important;
+    height: 420px !important;
+    display: block;
+    border-radius: 8px;
+  }
+
+  .footer {
+    margin-top: 14px;
+    text-align: center;
+    color: #6b6b6b;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+  }
+
+  .footer span {
+    color: #d4a843;
+    font-weight: 600;
+  }
+
+  .loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #132d5e;
+    border-radius: 16px;
+    color: #f5f0e1;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    z-index: 10;
+  }
+
+  .dot-pulse::after {
+    content: '';
+    animation: dots 1.5s infinite;
+  }
+  @keyframes dots {
+    0%   { content: ''; }
+    33%  { content: '.'; }
+    66%  { content: '..'; }
+    100% { content: '...'; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>What Matters to Washington's 4th District</h1>
+  <p>Voices from our community &mdash; updated in real time</p>
+</div>
+
+<div class="cloud-wrapper">
+  <div class="loading" id="loading"><span class="dot-pulse">Loading responses</span></div>
+  <canvas id="wordcloud-canvas"></canvas>
+</div>
+
+<div class="footer">
+  <span id="response-count">—</span> community responses recorded
+</div>
+
+<script>
+  // Approved issues list - only these will appear in the word cloud
+  const APPROVED_ISSUES = [
+    "Cost of living/Housing",
+    "Healthcare access and affordability",
+    "Jobs and local economy",
+    "Public schools and education",
+    "Immigration",
+    "Water rights & agriculture",
+    "Wildfire & Land management",
+    "Public and Community Safety",
+    "Wealth Inequality",
+    "Veteran Services"
+  ];
+
+  // Normalize for matching (lowercase, trimmed)
+  const normalizedApproved = APPROVED_ISSUES.map(i => i.toLowerCase().trim());
+
+  // Google Sheet ID - CSV export (no CORS issues)
+  const SHEET_ID = "1Ba5E7LH57fokQbznJVQdz-daxt6kmxAqfGxrdjydi7s";
+  const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&sheet=Sheet1`;
+
+  // Campaign colors for word cloud
+  const COLORS = [
+    "#f5f0e1", // cream
+    "#f0d68a", // wheat light
+    "#d4a843", // wheat
+    "#c41e3a", // crimson
+    "#ffffff",  // white
+  ];
+
+  function parseCSV(text) {
+    const lines = text.trim().split('\n');
+    return lines.slice(1).map(line => {
+      // Handle quoted CSV fields
+      const match = line.match(/^"([^"]*)"|^([^,]*)/);
+      return match ? (match[1] || match[2] || '').trim() : '';
+    }).filter(Boolean);
+  }
+
+  async function fetchAndRender() {
+    try {
+      const res = await fetch(SHEET_URL);
+      const text = await res.text();
+      const rows = parseCSV(text);
+
+      // Count frequencies
+      const counts = {};
+      let totalResponses = 0;
+
+      rows.forEach(cellValue => {
+        if (!cellValue) return;
+        totalResponses++;
+
+        // Split comma-separated values, handle brackets
+        const items = cellValue
+          .replace(/^\[|\]$/g, '')
+          .split(',')
+          .map(s => s.trim());
+
+        items.forEach(item => {
+          const normalized = item.toLowerCase().trim();
+          // Only count if it matches approved list
+          const matchIndex = normalizedApproved.indexOf(normalized);
+          if (matchIndex !== -1) {
+            const canonical = APPROVED_ISSUES[matchIndex];
+            counts[canonical] = (counts[canonical] || 0) + 1;
+          }
+        });
+      });
+
+      // Update response count
+      document.getElementById('response-count').textContent = totalResponses.toLocaleString();
+
+      // Build word list for WordCloud2
+      // Scale sizes: min 18, max 72
+      const entries = Object.entries(counts);
+      if (entries.length === 0) {
+        document.getElementById('loading').innerHTML = 'No responses yet — check back soon.';
+        return;
+      }
+
+      const maxCount = Math.max(...entries.map(e => e[1]));
+      const minCount = Math.min(...entries.map(e => e[1]));
+      const wordList = entries.map(([word, count]) => {
+        const size = minCount === maxCount
+          ? 40
+          : 18 + ((count - minCount) / (maxCount - minCount)) * 54;
+        return [word, Math.round(size)];
+      });
+
+      // Sort by size descending
+      wordList.sort((a, b) => b[1] - a[1]);
+
+      // Hide loading
+      document.getElementById('loading').style.display = 'none';
+
+      const canvas = document.getElementById('wordcloud-canvas');
+      canvas.width = canvas.offsetWidth;
+      canvas.height = 420;
+
+      WordCloud(canvas, {
+        list: wordList,
+        gridSize: 10,
+        weightFactor: 1,
+        fontFamily: "'Playfair Display', serif",
+        color: () => COLORS[Math.floor(Math.random() * COLORS.length)],
+        rotateRatio: 0.2,
+        rotationSteps: 2,
+        backgroundColor: '#132d5e',
+        drawOutOfBound: false,
+        shrinkToFit: true,
+        shuffle: true,
+        minSize: 12,
+      });
+
+    } catch (err) {
+      console.error(err);
+      document.getElementById('loading').innerHTML = 'Could not load responses. Please try again later.';
+    }
+  }
+
+  fetchAndRender();
+
+  // Auto-refresh every 5 minutes
+  setInterval(fetchAndRender, 5 * 60 * 1000);
+</script>
+</body>
+</html>
