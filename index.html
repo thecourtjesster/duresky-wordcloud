@@ -227,25 +227,35 @@
       const ctx = canvas.getContext('2d');
       ctx.scale(dpr, dpr);
 
+      // Re-scale word sizes to fit canvas properly
+      const maxSize = 52;
+      const minSize = 14;
+      const maxW = Math.max(...wordList.map(w => w[1]));
+      const minW = Math.min(...wordList.map(w => w[1]));
+      const scaledList = wordList.map(([word, size]) => {
+        const scaled = minW === maxW ? 32 : minSize + ((size - minW) / (maxW - minW)) * (maxSize - minSize);
+        return [word, Math.round(scaled)];
+      });
+
       WordCloud(canvas, {
-        list: wordList,
-        gridSize: Math.round(6 * dpr),
-        weightFactor: dpr,
+        list: scaledList,
+        gridSize: 8,
+        weightFactor: 1,
         fontFamily: "'Playfair Display', serif",
         color: (word, weight) => {
-          if (weight > 50 * dpr) return '#f5f0e1';
-          if (weight > 35 * dpr) return '#f0d68a';
-          if (weight > 25 * dpr) return '#d4a843';
+          if (weight > 40) return '#f5f0e1';
+          if (weight > 28) return '#f0d68a';
+          if (weight > 18) return '#d4a843';
           return COLORS[Math.floor(Math.random() * COLORS.length)];
         },
-        rotateRatio: 0.35,
-        rotationSteps: 3,
+        rotateRatio: 0.3,
+        rotationSteps: 2,
         backgroundColor: '#132d5e',
         drawOutOfBound: false,
         shrinkToFit: true,
         shuffle: true,
-        minSize: 10 * dpr,
-        ellipticity: 0.65,
+        minSize: 10,
+        ellipticity: 0.7,
       });
 
     } catch (err) {
