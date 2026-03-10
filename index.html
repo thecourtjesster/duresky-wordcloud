@@ -215,22 +215,37 @@
       document.getElementById('loading').style.display = 'none';
 
       const canvas = document.getElementById('wordcloud-canvas');
-      canvas.width = canvas.offsetWidth;
-      canvas.height = 420;
+      const dpr = window.devicePixelRatio || 2;
+      const displayWidth = canvas.offsetWidth;
+      const displayHeight = 420;
+
+      canvas.width = displayWidth * dpr;
+      canvas.height = displayHeight * dpr;
+      canvas.style.width = displayWidth + 'px';
+      canvas.style.height = displayHeight + 'px';
+
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
 
       WordCloud(canvas, {
         list: wordList,
-        gridSize: 10,
-        weightFactor: 1,
+        gridSize: Math.round(6 * dpr),
+        weightFactor: dpr,
         fontFamily: "'Playfair Display', serif",
-        color: () => COLORS[Math.floor(Math.random() * COLORS.length)],
-        rotateRatio: 0.2,
-        rotationSteps: 2,
+        color: (word, weight) => {
+          if (weight > 50 * dpr) return '#f5f0e1';
+          if (weight > 35 * dpr) return '#f0d68a';
+          if (weight > 25 * dpr) return '#d4a843';
+          return COLORS[Math.floor(Math.random() * COLORS.length)];
+        },
+        rotateRatio: 0.35,
+        rotationSteps: 3,
         backgroundColor: '#132d5e',
         drawOutOfBound: false,
         shrinkToFit: true,
         shuffle: true,
-        minSize: 12,
+        minSize: 10 * dpr,
+        ellipticity: 0.65,
       });
 
     } catch (err) {
