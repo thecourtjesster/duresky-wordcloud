@@ -191,71 +191,53 @@
       // Update response count
       document.getElementById('response-count').textContent = totalResponses.toLocaleString();
 
-      // Build word list for WordCloud2
-      // Scale sizes: min 18, max 72
       const entries = Object.entries(counts);
       if (entries.length === 0) {
         document.getElementById('loading').innerHTML = 'No responses yet — check back soon.';
         return;
       }
 
+      // Scale font sizes: max 36px, min 13px — conservative to prevent clipping
       const maxCount = Math.max(...entries.map(e => e[1]));
       const minCount = Math.min(...entries.map(e => e[1]));
       const wordList = entries.map(([word, count]) => {
         const size = minCount === maxCount
-          ? 40
-          : 18 + ((count - minCount) / (maxCount - minCount)) * 54;
+          ? 24
+          : 13 + ((count - minCount) / (maxCount - minCount)) * 23;
         return [word, Math.round(size)];
       });
-
-      // Sort by size descending
       wordList.sort((a, b) => b[1] - a[1]);
 
       // Hide loading
       document.getElementById('loading').style.display = 'none';
 
+      // Set canvas to exact pixel size — must match CSS
       const canvas = document.getElementById('wordcloud-canvas');
-      const dpr = window.devicePixelRatio || 2;
-      const displayWidth = canvas.offsetWidth;
-      const displayHeight = 420;
-
-      canvas.width = displayWidth * dpr;
-      canvas.height = displayHeight * dpr;
-      canvas.style.width = displayWidth + 'px';
-      canvas.style.height = displayHeight + 'px';
-
-      const ctx = canvas.getContext('2d');
-      ctx.scale(dpr, dpr);
-
-      // Re-scale word sizes to fit canvas properly
-      const maxSize = 52;
-      const minSize = 14;
-      const maxW = Math.max(...wordList.map(w => w[1]));
-      const minW = Math.min(...wordList.map(w => w[1]));
-      const scaledList = wordList.map(([word, size]) => {
-        const scaled = minW === maxW ? 32 : minSize + ((size - minW) / (maxW - minW)) * (maxSize - minSize);
-        return [word, Math.round(scaled)];
-      });
+      const W = canvas.offsetWidth || 800;
+      const H = 420;
+      canvas.width = W;
+      canvas.height = H;
 
       WordCloud(canvas, {
-        list: scaledList,
-        gridSize: 8,
+        list: wordList,
+        gridSize: 12,
         weightFactor: 1,
         fontFamily: "'Playfair Display', serif",
         color: (word, weight) => {
-          if (weight > 40) return '#f5f0e1';
-          if (weight > 28) return '#f0d68a';
-          if (weight > 18) return '#d4a843';
-          return COLORS[Math.floor(Math.random() * COLORS.length)];
+          if (weight >= 30) return '#f5f0e1';
+          if (weight >= 22) return '#f0d68a';
+          if (weight >= 16) return '#d4a843';
+          return '#c41e3a';
         },
-        rotateRatio: 0.3,
+        rotateRatio: 0.25,
         rotationSteps: 2,
         backgroundColor: '#132d5e',
         drawOutOfBound: false,
         shrinkToFit: true,
         shuffle: true,
-        minSize: 10,
-        ellipticity: 0.7,
+        minSize: 8,
+        ellipticity: 0.75,
+        origin: [W / 2, H / 2],
       });
 
     } catch (err) {
